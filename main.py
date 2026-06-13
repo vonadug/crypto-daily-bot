@@ -1,8 +1,11 @@
 import os
+import json
 import requests
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
+
+STATE_FILE = "portfolio_state.json"
 
 portfolio = {
     "tron": {"symbol": "TRX", "amount": 9481.90320483},
@@ -54,6 +57,26 @@ total_change_24h = (total_pnl_24h / total_value_24h_ago) * 100
 
 coins.sort(key=lambda x: x["value"], reverse=True)
 
+top_winner = max(coins, key=lambda x: x["pnl_24h"])
+top_loser = min(coins, key=lambda x: x["pnl_24h"])
+
+previous_total = 0
+
+try:
+    with open(STATE_FILE, "r") as file:
+        state = json.load(file)
+        previous_total = state.get("last_total_value", 0)
+except FileNotFoundError:
+    previous_total = 0
+
+since_yesterday_text = "First run: no previous value yet"
+
+if previous_total > 0:
+    since_yesterday = total_value - previous_total
+    since_yesterday_percent = (since_yesterday / previous_total) * 100
+    since_emoji = "🟢" if since_yesterday >= 0 else "🔴"
+    since_yesterday_text = f"{since_emoji} ${since_yesterday:+,.2f} ({since_yesterday_percent:+.2f}%)"
+
 lines = []
 
 for coin in coins:
@@ -71,7 +94,12 @@ day_emoji = "🟢" if total_pnl_24h >= 0 else "🔴"
 
 message = "📊 Crypto Portfolio Daily\n\n"
 message += f"Total Value: ${total_value:,.2f}\n"
-message += f"24h P/L: {day_emoji} ${total_pnl_24h:+,.2f} ({total_change_24h:+.2f}%)\n\n"
+message += f"24h P/L: {day_emoji} ${total_pnl_24h:+,.2f} ({total_change_24h:+.2f}%)\n"
+message += f"Since Last Run: {since_yesterday_text}\n\n"
+
+message += f"🚀 Top Winner: {top_winner['symbol']} {top_winner['pnl_24h']:+.2f}$\n"
+message += f"📉 Top Loser: {top_loser['symbol']} {top_loser['pnl_24h']:+.2f}$\n\n"
+
 message += "\n".join(lines)
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -87,3 +115,6 @@ response = requests.post(
 
 print(response.status_code)
 print(response.text)
+
+with open(STATE_FILE, "w") as file:
+    json.dump({"last_total_value": total_value}, file, indent=2)

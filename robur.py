@@ -1,38 +1,40 @@
 import os
+import json
 import requests
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
-# ОБНОВЛЯТЬ ВРУЧНУЮ
-CURRENT_NAV = 26.6770
+URL = "https://lt.morningstar.com/api/rest.svc/klr5zyak8x/securities_details?ids=SE0014261764&idType=ISIN&viewIds=Portfolio&responseViewFormat=json"
 
-# ТВОЯ ПОЗИЦИЯ
-UNITS = 372.7126
-PURCHASE_PRICE = 23.80
-
-current_value = CURRENT_NAV * UNITS
-purchase_value = PURCHASE_PRICE * UNITS
-profit = current_value - purchase_value
-profit_pct = (profit / purchase_value) * 100
-
-message = (
-    "🟠 Robur Technology\n\n"
-    f"NAV: €{CURRENT_NAV:.4f}\n\n"
-    f"Position Value: €{current_value:,.2f}\n"
-    f"Purchase Value: €{purchase_value:,.2f}\n"
-    f"Profit: 🟢 €{profit:,.2f} (+{profit_pct:.2f}%)"
+response = requests.get(
+    URL,
+    headers={
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://www.swedbank.lv/private/investor/funds/allFunds/list/details"
+    },
+    timeout=20
 )
 
-url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+text = response.content.decode("utf-8-sig", errors="replace")
 
-response = requests.post(
-    url,
+message = "🔎 Robur API Debug\n\n"
+message += f"Status: {response.status_code}\n"
+message += f"Content-Type: {response.headers.get('content-type')}\n"
+message += f"Length: {len(text)}\n\n"
+message += text[:3000]
+
+telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+requests.post(
+    telegram_url,
     json={
         "chat_id": CHAT_ID,
-        "text": message
-    }
+        "text": message[:3900]
+    },
+    timeout=20
 )
 
 print(response.status_code)
-print(response.text)
+print(text[:500])

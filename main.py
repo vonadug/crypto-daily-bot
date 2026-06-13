@@ -21,44 +21,53 @@ ids = ",".join(portfolio.keys())
 price_url = "https://api.coingecko.com/api/v3/simple/price"
 params = {
     "ids": ids,
-    "vs_currencies": "usd",
+    "vs_currencies": "usd,eur",
     "include_24hr_change": "true"
 }
 
 prices = requests.get(price_url, params=params, timeout=20).json()
 
 coins = []
-total_value = 0
+total_value_usd = 0
+total_value_eur = 0
 total_value_24h_ago = 0
 
 for coin_id, data in portfolio.items():
     symbol = data["symbol"]
     amount = data["amount"]
-    price = prices[coin_id]["usd"]
+
+    price_usd = prices[coin_id]["usd"]
+    price_eur = prices[coin_id]["eur"]
     change_24h = prices[coin_id]["usd_24h_change"]
 
-    value = amount * price
-    price_24h_ago = price / (1 + change_24h / 100)
-    value_24h_ago = amount * price_24h_ago
-    pnl_24h = value - value_24h_ago
+    value_usd = amount * price_usd
+    value_eur = amount * price_eur
 
-    total_value += value
+    price_24h_ago = price_usd / (1 + change_24h / 100)
+    value_24h_ago = amount * price_24h_ago
+    pnl_24h = value_usd - value_24h_ago
+
+    total_value_usd += value_usd
+    total_value_eur += value_eur
     total_value_24h_ago += value_24h_ago
 
     coins.append({
         "symbol": symbol,
-        "value": value,
+        "value_usd": value_usd,
+        "value_eur": value_eur,
         "change_24h": change_24h,
         "pnl_24h": pnl_24h
     })
 
-total_pnl_24h = total_value - total_value_24h_ago
+total_pnl_24h = total_value_usd - total_value_24h_ago
 total_change_24h = (total_pnl_24h / total_value_24h_ago) * 100
 
-coins.sort(key=lambda x: x["value"], reverse=True)
+coins.sort(key=lambda x: x["value_usd"], reverse=True)
 
 top_winner = max(coins, key=lambda x: x["pnl_24h"])
 top_loser = min(coins, key=lambda x: x["pnl_24h"])
+largest_position = max(coins, key=lambda x: x["value_usd"])
+largest_share = (largest_position["value_usd"] / total_value_usd) * 100
 
 previous_total = 0
 
@@ -72,7 +81,7 @@ except FileNotFoundError:
 since_yesterday_text = "First run: no previous value yet"
 
 if previous_total > 0:
-    since_yesterday = total_value - previous_total
+    since_yesterday = total_value_usd - previous_total
     since_yesterday_percent = (since_yesterday / previous_total) * 100
     since_emoji = "🟢" if since_yesterday >= 0 else "🔴"
     since_yesterday_text = f"{since_emoji} ${since_yesterday:+,.2f} ({since_yesterday_percent:+.2f}%)"
@@ -81,10 +90,10 @@ lines = []
 
 for coin in coins:
     emoji = "🟢" if coin["change_24h"] >= 0 else "🔴"
-    share = (coin["value"] / total_value) * 100
+    share = (coin["value_usd"] / total_value_usd) * 100
 
     lines.append(
-        f"{emoji} {coin['symbol']}: ${coin['value']:,.2f} | "
+        f"{emoji} {coin['symbol']}: ${coin['value_usd']:,.2f} / €{coin['value_eur']:,.2f} | "
         f"{coin['change_24h']:+.2f}% | "
         f"{coin['pnl_24h']:+.2f}$ | "
         f"{share:.1f}%"
@@ -93,12 +102,13 @@ for coin in coins:
 day_emoji = "🟢" if total_pnl_24h >= 0 else "🔴"
 
 message = "📊 Crypto Portfolio Daily\n\n"
-message += f"Total Value: ${total_value:,.2f}\n"
+message += f"Total Value: ${total_value_usd:,.2f} / €{total_value_eur:,.2f}\n"
 message += f"24h P/L: {day_emoji} ${total_pnl_24h:+,.2f} ({total_change_24h:+.2f}%)\n"
 message += f"Since Last Run: {since_yesterday_text}\n\n"
 
 message += f"🚀 Top Winner: {top_winner['symbol']} {top_winner['pnl_24h']:+.2f}$\n"
-message += f"📉 Top Loser: {top_loser['symbol']} {top_loser['pnl_24h']:+.2f}$\n\n"
+message += f"📉 Top Loser: {top_loser['symbol']} {top_loser['pnl_24h']:+.2f}$\n"
+message += f"⚠️ Largest Position: {largest_position['symbol']} {largest_share:.1f}%\n\n"
 
 message += "\n".join(lines)
 
@@ -117,4 +127,4 @@ print(response.status_code)
 print(response.text)
 
 with open(STATE_FILE, "w") as file:
-    json.dump({"last_total_value": total_value}, file, indent=2)
+    json.dump({"last_total_value": total_value_usd}, file, indent=2)

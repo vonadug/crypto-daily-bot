@@ -4,36 +4,35 @@ import requests
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
-URL = "https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details?id=SE0014261764&idType=ISIN&viewIds=Portfolio&responseViewFormat=json"
+# ОБНОВЛЯТЬ ВРУЧНУЮ
+CURRENT_NAV = 26.6770
 
-response = requests.get(
-    URL,
-    headers={
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json,text/plain,*/*"
-    },
-    timeout=20
+# ТВОЯ ПОЗИЦИЯ
+UNITS = 372.7126
+PURCHASE_PRICE = 23.80
+
+current_value = CURRENT_NAV * UNITS
+purchase_value = PURCHASE_PRICE * UNITS
+profit = current_value - purchase_value
+profit_pct = (profit / purchase_value) * 100
+
+message = (
+    "🟠 Robur Technology\n\n"
+    f"NAV: €{CURRENT_NAV:.4f}\n\n"
+    f"Position Value: €{current_value:,.2f}\n"
+    f"Purchase Value: €{purchase_value:,.2f}\n"
+    f"Profit: 🟢 €{profit:,.2f} (+{profit_pct:.2f}%)"
 )
 
-text = response.content.decode("utf-8-sig", errors="replace")
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-message = "🔎 Robur Morningstar Debug\n\n"
-message += f"Status code: {response.status_code}\n"
-message += f"Content type: {response.headers.get('content-type')}\n"
-message += f"Text length: {len(text)}\n\n"
-message += "First 2500 chars:\n"
-message += text[:2500]
-
-telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-requests.post(
-    telegram_url,
+response = requests.post(
+    url,
     json={
         "chat_id": CHAT_ID,
-        "text": message[:3900]
-    },
-    timeout=20
+        "text": message
+    }
 )
 
 print(response.status_code)
-print(text[:500])
+print(response.text)

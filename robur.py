@@ -1,27 +1,44 @@
 import os
+import json
 import requests
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
-FUND_URL = "https://www.swedbank.lv/private/investor/funds/allFunds/list/details"
+URL = "https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details?id=SE0014261764&idType=ISIN&viewIds=Portfolio&responseViewFormat=json"
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+response = requests.get(
+    URL,
+    headers={"User-Agent": "Mozilla/5.0"},
+    timeout=20
+)
 
-html = requests.get(FUND_URL, headers=headers, timeout=20).text
+data = response.json()
 
-keywords = ["NAV", "26.6770", "Technology", "SE0014261764"]
+text = json.dumps(data, indent=2)
 
-result = "🔎 Robur Debug\n\n"
+keywords = [
+    "NAV",
+    "nav",
+    "Price",
+    "price",
+    "Close",
+    "close",
+    "Currency",
+    "currency",
+    "26.677",
+    "SE0014261764",
+    "Technology"
+]
+
+message = "🔎 Robur JSON Debug\n\n"
 
 for keyword in keywords:
-    index = html.find(keyword)
-    result += f"{keyword}: {index}\n"
+    index = text.find(keyword)
+    message += f"{keyword}: {index}\n"
 
-result += f"\nHTML length: {len(html)}\n\n"
-result += html[:1200]
+message += "\nJSON start:\n"
+message += text[:2500]
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -29,7 +46,7 @@ requests.post(
     telegram_url,
     json={
         "chat_id": CHAT_ID,
-        "text": result[:3900]
+        "text": message[:3900]
     },
     timeout=20
 )

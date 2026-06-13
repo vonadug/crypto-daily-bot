@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
@@ -10,42 +9,24 @@ URL = "https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details?id=SE
 response = requests.get(
     URL,
     headers={
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json,text/plain,*/*"
     },
     timeout=20
 )
 
-text = response.content.decode("utf-8-sig")
-data = json.loads(text)
+text = response.content.decode("utf-8-sig", errors="replace")
 
-pretty_text = json.dumps(data, indent=2)
-
-keywords = [
-    "NAV",
-    "nav",
-    "Price",
-    "price",
-    "Close",
-    "close",
-    "Currency",
-    "currency",
-    "26.677",
-    "SE0014261764",
-    "Technology"
-]
-
-message = "🔎 Robur JSON Debug\n\n"
-
-for keyword in keywords:
-    index = pretty_text.find(keyword)
-    message += f"{keyword}: {index}\n"
-
-message += "\nJSON start:\n"
-message += pretty_text[:2500]
+message = "🔎 Robur Morningstar Debug\n\n"
+message += f"Status code: {response.status_code}\n"
+message += f"Content type: {response.headers.get('content-type')}\n"
+message += f"Text length: {len(text)}\n\n"
+message += "First 2500 chars:\n"
+message += text[:2500]
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-response = requests.post(
+requests.post(
     telegram_url,
     json={
         "chat_id": CHAT_ID,
@@ -55,4 +36,4 @@ response = requests.post(
 )
 
 print(response.status_code)
-print(response.text)
+print(text[:500])

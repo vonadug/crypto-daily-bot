@@ -64,8 +64,8 @@ total_change_24h = (total_pnl_24h / total_value_24h_ago) * 100
 
 coins.sort(key=lambda x: x["value_usd"], reverse=True)
 
-top_winner = max(coins, key=lambda x: x["pnl_24h"])
-top_loser = min(coins, key=lambda x: x["pnl_24h"])
+best_performer = max(coins, key=lambda x: x["pnl_24h"])
+weakest_performer = min(coins, key=lambda x: x["pnl_24h"])
 largest_position = max(coins, key=lambda x: x["value_usd"])
 largest_share = (largest_position["value_usd"] / total_value_usd) * 100
 
@@ -106,8 +106,8 @@ message += f"Total Value: ${total_value_usd:,.2f} / €{total_value_eur:,.2f}\n"
 message += f"24h P/L: {day_emoji} ${total_pnl_24h:+,.2f} ({total_change_24h:+.2f}%)\n"
 message += f"Since Last Run: {since_yesterday_text}\n\n"
 
-message += f"🚀 Top Winner: {top_winner['symbol']} {top_winner['pnl_24h']:+.2f}$\n"
-message += f"📉 Top Loser: {top_loser['symbol']} {top_loser['pnl_24h']:+.2f}$\n"
+message += f"🚀 Best Performer: {best_performer['symbol']} {best_performer['pnl_24h']:+.2f}$\n"
+message += f"🐢 Weakest Performer: {weakest_performer['symbol']} {weakest_performer['pnl_24h']:+.2f}$\n"
 message += f"⚠️ Largest Position: {largest_position['symbol']} {largest_share:.1f}%\n\n"
 
 message += "\n".join(lines)

@@ -9,13 +9,16 @@ URL = "https://lt.morningstar.com/api/rest.svc/klr5zyak8x/security_details?id=SE
 
 response = requests.get(
     URL,
-    headers={"User-Agent": "Mozilla/5.0"},
+    headers={
+        "User-Agent": "Mozilla/5.0"
+    },
     timeout=20
 )
 
-data = response.json()
+text = response.content.decode("utf-8-sig")
+data = json.loads(text)
 
-text = json.dumps(data, indent=2)
+pretty_text = json.dumps(data, indent=2)
 
 keywords = [
     "NAV",
@@ -34,15 +37,15 @@ keywords = [
 message = "🔎 Robur JSON Debug\n\n"
 
 for keyword in keywords:
-    index = text.find(keyword)
+    index = pretty_text.find(keyword)
     message += f"{keyword}: {index}\n"
 
 message += "\nJSON start:\n"
-message += text[:2500]
+message += pretty_text[:2500]
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-requests.post(
+response = requests.post(
     telegram_url,
     json={
         "chat_id": CHAT_ID,
@@ -50,3 +53,6 @@ requests.post(
     },
     timeout=20
 )
+
+print(response.status_code)
+print(response.text)

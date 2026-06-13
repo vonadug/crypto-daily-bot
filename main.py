@@ -1,26 +1,20 @@
-name: Run Crypto Bot
+import os
+import requests
 
-on:
-  workflow_dispatch:
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+CHAT_ID = os.environ["CHAT_ID"]
 
-jobs:
-  run-bot:
-    runs-on: ubuntu-latest
+message = "🚀 Artem Crypto Bot is running!"
 
-    env:
-      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-      CHAT_ID: ${{ secrets.CHAT_ID }}
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-    steps:
-      - uses: actions/checkout@v4
+response = requests.post(
+    url,
+    json={
+        "chat_id": CHAT_ID,
+        "text": message
+    }
+)
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Run bot
-        run: python main.py
+print(response.status_code)
+print(response.text)

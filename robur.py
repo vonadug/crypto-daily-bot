@@ -18,7 +18,29 @@ response = requests.get(
     timeout=30
 )
 
-data = response.json()
+try:
+    data = response.json()
+except Exception:
+    error_message = "⚠️ Robur Bot Error\n\n"
+    error_message += "Could not read Robur price data today.\n"
+    error_message += f"Status: {response.status_code}\n"
+    error_message += f"Content-Type: {response.headers.get('content-type', 'unknown')}\n"
+    error_message += f"Text preview: {response.text[:300]}"
+
+    requests.post(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+        json={
+            "chat_id": CHAT_ID,
+            "text": error_message
+        },
+        timeout=20
+    )
+
+    print("Robur response was not JSON")
+    print("Status:", response.status_code)
+    print("Text:", response.text[:500])
+
+    exit(0)
 
 latest_timestamp = data[-1][0]
 latest_nav = data[-1][1]

@@ -125,15 +125,17 @@ for coin in coins:
 
 day_emoji = "🟢" if total_pnl_24h >= 0 else "🔴"
 
+total_value_24h_ago_eur = total_value_eur / (1 + total_change_24h / 100)
+total_pnl_24h_eur = total_value_eur - total_value_24h_ago_eur
+
 message = "📊 Crypto Portfolio Daily\n\n"
-message += f"Total Value: ${total_value_usd:,.2f} / €{total_value_eur:,.2f}\n"
-message += f"24h P/L: {day_emoji} ${total_pnl_24h:+,.2f} ({total_change_24h:+.2f}%)\n"
+message += f"Total Value: {total_value_eur:,.2f} €\n"
+message += f"24h P/L: {day_emoji} {total_pnl_24h_eur:+,.2f} € ({total_change_24h:+.2f}%)\n"
 message += f"Since Last Run: {since_yesterday_text}\n\n"
 
-message += f"🚀 Best Performer: {best_performer['symbol']} {best_performer['pnl_24h']:+.2f}$\n"
-message += f"🐢 Weakest Performer: {weakest_performer['symbol']} {weakest_performer['pnl_24h']:+.2f}$\n"
+message += f"🚀 Best Performer: {best_performer['symbol']}\n"
+message += f"🐢 Weakest Performer: {weakest_performer['symbol']}\n"
 message += f"⚠️ Largest Position: {largest_position['symbol']} {largest_share:.1f}%\n\n"
-
 message += "\n".join(lines)
 
 telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"

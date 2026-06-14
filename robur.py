@@ -51,6 +51,11 @@ if page_response.status_code != 200:
     )
 
 html = page_response.text
+with open("swedbank_page.html", "w", encoding="utf-8") as f:
+    f.write(html)
+
+print(html[:5000])
+exit(0)
 
 identifier_match = re.search(r'identifier=([A-F0-9]{80,})', html)
 token_match = re.search(r'token=([A-F0-9]{80,})', html)

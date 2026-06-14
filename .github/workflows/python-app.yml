@@ -38,9 +38,7 @@ jobs:
       - name: Run Trading212 bot
         run: python stocks.py
 
-      - name: Test Binance API
-        run: python binance_test.py
-
+      
       - name: Save portfolio state
         run: |
           git config user.name "github-actions"

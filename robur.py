@@ -1,51 +1,104 @@
 import os
+import re
 import requests
 from datetime import datetime
+from portfolio_config import ROBUR_UNITS, ROBUR_AVG_PRICE_EUR
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
-ROBUR_PRICE_URL = "https://swedbank.lv/price-provider/pub/json?identifier=75E87DE63ED8B60F6445F868AC3FB10D41DB49D30B9E83496232F968AC4CB00B41DD48D60A9E82496430F968AA48B00C41AE48D30A9D833B6444F917AC4CB17946AC48A00B9E824C6440F968AC4CB77D41D149D20B9E83496232F968AC4CB10C40DF48D40BEC823A6545F81DAC4CB17946AA49D00BEA823A6447F91BAD3FB07A41DB48DF0B9E83496232F968AC4CB00B41D948DF0B9E8349623475E87C78F838427B5176CDB05FEA704B&userId=UNKNOWN&token=23A4559EDECC46B528FAE4CB3A2E51337C990AC1929A19EA70E7F4C42228410146FB0AA3819320D427E6F4FA11675D1F46D61CFA81937BEA14C0DFEE00137F227CFB6E23A4540012605D5E4B95903B82F03387"
+DETAILS_URL = "https://www.swedbank.lv/private/investor/funds/allFunds/list/details"
+FUND_ISIN = "SE0014261764"
 
-UNITS = 372.7126
-PURCHASE_VALUE = 8870.38
+UNITS = ROBUR_UNITS
+PURCHASE_VALUE = ROBUR_UNITS * ROBUR_AVG_PRICE_EUR
 
-response = requests.get(
-    ROBUR_PRICE_URL,
+
+def send_telegram(text):
+    response = requests.post(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+        json={
+            "chat_id": CHAT_ID,
+            "text": text
+        },
+        timeout=30
+    )
+    print(response.status_code)
+    print(response.text)
+
+
+def fail(message, extra=""):
+    text = "⚠️ Robur Bot Error\n\n"
+    text += message
+    if extra:
+        text += "\n\n" + extra[:1000]
+    send_telegram(text)
+    exit(0)
+
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+})
+
+page_response = session.get(DETAILS_URL, timeout=30)
+
+if page_response.status_code != 200:
+    fail(
+        "Could not open Swedbank fund details page.",
+        f"Status: {page_response.status_code}\nPreview: {page_response.text[:300]}"
+    )
+
+html = page_response.text
+
+identifier_match = re.search(r'identifier=([A-F0-9]{80,})', html)
+token_match = re.search(r'token=([A-F0-9]{80,})', html)
+
+if not identifier_match or not token_match:
+    fail(
+        "Could not find fresh Robur price-provider identifier/token on Swedbank page.",
+        f"HTML length: {len(html)}\nPreview: {html[:500]}"
+    )
+
+identifier = identifier_match.group(1)
+token = token_match.group(1)
+
+price_url = (
+    "https://swedbank.lv/price-provider/pub/json"
+    f"?identifier={identifier}"
+    "&userId=UNKNOWN"
+    f"&token={token}"
+)
+
+price_response = session.get(
+    price_url,
     headers={
-        "User-Agent": "Mozilla/5.0"
+        "Accept": "application/json,*/*"
     },
     timeout=30
 )
 
 try:
-    data = response.json()
+    data = price_response.json()
 except Exception:
-    error_message = "⚠️ Robur Bot Error\n\n"
-    error_message += "Could not read Robur price data today.\n"
-    error_message += f"Status: {response.status_code}\n"
-    error_message += f"Content-Type: {response.headers.get('content-type', 'unknown')}\n"
-    error_message += f"Text preview: {response.text[:300]}"
-
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "text": error_message
-        },
-        timeout=20
+    fail(
+        "Could not read Robur price JSON.",
+        f"Status: {price_response.status_code}\n"
+        f"Content-Type: {price_response.headers.get('content-type', 'unknown')}\n"
+        f"Preview: {price_response.text[:500]}"
     )
 
-    print("Robur response was not JSON")
-    print("Status:", response.status_code)
-    print("Text:", response.text[:500])
-
-    exit(0)
+if not isinstance(data, list) or len(data) < 2:
+    fail(
+        "Robur price JSON was empty or invalid.",
+        f"Status: {price_response.status_code}\nData: {str(data)[:500]}"
+    )
 
 latest_timestamp = data[-1][0]
-latest_nav = data[-1][1]
+latest_nav = float(data[-1][1])
 
-previous_nav = data[-2][1]
+previous_nav = float(data[-2][1])
 
 nav_change = latest_nav - previous_nav
 nav_change_pct = (nav_change / previous_nav) * 100
@@ -64,22 +117,10 @@ daily_emoji = "🟢" if daily_change_value >= 0 else "🔴"
 profit_emoji = "🟢" if profit >= 0 else "🔴"
 
 message = "📈 Robur Technology Daily\n\n"
-message += f"NAV at {latest_date}: €{latest_nav:.4f}\n"
+message += f"NAV at {latest_date}: {latest_nav:.4f} €\n"
 message += f"Units: {UNITS:.4f}\n"
-message += f"Current Value: €{current_value:,.2f}\n\n"
-message += f"Daily Change: {daily_emoji} €{daily_change_value:+,.2f} ({nav_change_pct:+.2f}%)\n"
-message += f"Profit: {profit_emoji} €{profit:+,.2f} ({profit_pct:+.2f}%)"
+message += f"Current Value: {current_value:,.2f} €\n\n"
+message += f"Daily Change: {daily_emoji} {daily_change_value:+,.2f} € ({nav_change_pct:+.2f}%)\n"
+message += f"Profit: {profit_emoji} {profit:+,.2f} € ({profit_pct:+.2f}%)"
 
-telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-response = requests.post(
-    telegram_url,
-    json={
-        "chat_id": CHAT_ID,
-        "text": message
-    },
-    timeout=30
-)
-
-print(response.status_code)
-print(response.text)
+send_telegram(message)

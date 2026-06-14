@@ -214,6 +214,12 @@ for group_name in ["ETF", "Quantum", "Growth"]:
 
     message += "\n"
 
+mmessage += "\n📦 Portfolio Summary\n\n"
+message += f"🪙 Crypto: 5100.81 €\n"
+message += f"📈 Robur: 9942.85 €\n"
+message += f"🏦 Trading212: {fmt_eur_plain(total_value)}\n\n"
+message += f"💎 Total Net Worth: {fmt_eur_plain(5100.81 + 9942.85 + total_value)}\n\n"
+
 message += "────────────────\n"
 message += f"💶 Cash: {fmt_eur_plain(CASH_EUR)}\n"
 message += f"🏦 Total: {fmt_eur_plain(total_value)}"

@@ -33,9 +33,12 @@ jobs:
 
       - name: Run Robur bot
         run: python robur.py
-        
+
       - name: Run Trading212 bot
         run: python stocks.py
+
+      - name: Test Binance API
+        run: python binance_test.py
 
       - name: Save portfolio state
         run: |

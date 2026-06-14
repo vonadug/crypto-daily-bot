@@ -111,13 +111,16 @@ for coin in coins:
     emoji = "🟢" if coin["change_24h"] >= 0 else "🔴"
     share = (coin["value_usd"] / total_value_usd) * 100
 
-    lines.append(
-        f"{emoji} {coin['symbol']}: ${coin['value_usd']:,.2f} / €{coin['value_eur']:,.2f} | "
-        f"{coin['change_24h']:+.2f}% | "
-        f"{coin['pnl_24h']:+.2f}$ | "
-        f"{share:.1f}%"
-    )
+    pnl_24h_eur = coin["value_eur"] - (
+    coin["value_eur"] / (1 + coin["change_24h"] / 100)
+)
 
+lines.append(
+    f"{emoji} {coin['symbol']}: "
+    f"€{coin['value_eur']:,.2f} | "
+    f"{pnl_24h_eur:+,.2f}€ | "
+    f"{share:.1f}%"
+)
 day_emoji = "🟢" if total_pnl_24h >= 0 else "🔴"
 
 message = "📊 Crypto Portfolio Daily\n\n"

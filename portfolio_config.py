@@ -1,5 +1,6 @@
 # =========================
 # CRYPTO
+# Update amounts after monthly purchases
 # =========================
 
 CRYPTO_HOLDINGS = {
@@ -14,14 +15,18 @@ CRYPTO_HOLDINGS = {
 
 # =========================
 # ROBUR
+# Update units after purchases
+# Update NAV manually if Swedbank API is unavailable
 # =========================
 
 ROBUR_UNITS = 372.7126
+ROBUR_NAV = 26.6770
 ROBUR_AVG_PRICE_EUR = 23.80
 
 
 # =========================
 # TRADING212
+# Update share counts after purchases
 # =========================
 
 CASH_EUR = 112.19

@@ -205,12 +205,11 @@ for group_name in ["ETF", "Quantum", "Growth"]:
         weight = (row["value"] / total_value) * 100
 
         message += (
-            f"{emoji} {row['name']}: "
-            f"{fmt_eur_plain(row['value'])} | "
-            f"{weight:.1f}% | "
-            f"{row['daily_pct']:+.2f}% | "
-            f"{fmt_eur(row['daily_value'])}\n"
-        )
+    f"{emoji} {row['name']}: "
+    f"{fmt_eur_plain(row['value'])} | "
+    f"{fmt_eur(row['daily_value'])} | "
+    f"{weight:.1f}%\n"
+)
 
     message += "\n"
 

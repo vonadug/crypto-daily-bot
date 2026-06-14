@@ -179,7 +179,7 @@ message += f"Profit: {profit_emoji} {fmt_eur(total_profit)} ({total_profit_pct:+
 
 message += "📈 Since Start\n\n"
 
-ffor group in ["ETF", "Quantum", "Growth"]:
+for group in ["ETF", "Quantum", "Growth"]:
     g = group_stats[group]
     emoji = "🟢" if g["profit"] >= 0 else "🔴"
     group_weight = (group_values[group] / total_value) * 100

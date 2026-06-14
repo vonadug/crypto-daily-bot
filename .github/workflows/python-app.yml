@@ -1,13 +1,22 @@
-name: Python application
+name: Run Crypto Bot
 
 on:
   schedule:
     - cron: "0 8 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      CHAT_ID: ${{ secrets.CHAT_ID }}
+      BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+      BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,15 +39,12 @@ jobs:
         run: python stocks.py
 
       - name: Test Binance API
-        env:
-          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
-          BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
         run: python binance_test.py
 
       - name: Save portfolio state
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add portfolio_state.json
+          git add portfolio_state.json stocks_state.json || true
           git commit -m "Update portfolio state" || echo "No changes to commit"
           git push

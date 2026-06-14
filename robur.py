@@ -5,7 +5,7 @@ import requests
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
-url = "https://lt.morningstar.com/api/rest.svc/7ndqnfv9u4/securities_details?ids=SE0014261764&idType=ISIN&viewIds=Portfolio&responseViewFormat=json"
+url = "https://lt.morningstar.com/api/rest.svc/7ndqnfv9u4/securities_details?ids=SE0014261764&idType=ISIN&viewIds=costs|Portfolio&responseViewFormat=json"
 
 headers = {
     "User-Agent": "Mozilla/5.0",

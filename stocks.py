@@ -83,6 +83,8 @@ except FileNotFoundError:
     old_state = {}
 
 rows = []
+group_costs = {}
+group_values = {}
 total_value = CASH_EUR
 total_daily = 0
 total_cost = 0
@@ -100,6 +102,8 @@ for group, name, ticker, shares, avg_price, avg_currency in POSITIONS:
     daily_pct = (daily_value / prev_value) * 100 if prev_value else 0
 
     cost = shares * avg_eur
+    group_costs[group] = group_costs.get(group, 0) + cost
+    group_values[group] = group_values.get(group, 0) + value
     profit = value - cost
     profit_pct = (profit / cost) * 100 if cost else 0
 
@@ -123,6 +127,19 @@ total_daily_pct = (total_daily / total_prev) * 100 if total_prev else 0
 
 total_profit = total_value - CASH_EUR - total_cost
 total_profit_pct = (total_profit / total_cost) * 100 if total_cost else 0
+group_stats = {}
+
+for group in group_values:
+    g_value = group_values[group]
+    g_cost = group_costs[group]
+
+    g_profit = g_value - g_cost
+    g_profit_pct = (g_profit / g_cost * 100) if g_cost else 0
+
+    group_stats[group] = {
+        "profit": g_profit,
+        "profit_pct": g_profit_pct,
+    }
 
 previous_total = old_state.get("total_value")
 since_last = None
@@ -149,9 +166,24 @@ if since_last is not None:
     since_emoji = "🟢" if since_last >= 0 else "🔴"
     message += f"Since Last Run: {since_emoji} {since_last:+,.2f} € ({since_last_pct:+.2f}%)\n"
 
-message += f"Profit: {profit_emoji} {total_profit:+,.2f} € ({total_profit_pct:+.2f}%)\n\n"
+message += f"Profit: {profit_emoji} {fmt_eur(total_profit)} ({total_profit_pct:+.2f}%)\n\n"
 
-message += f"🚀 Best Performer: {best['name']} {best['daily_value']:+,.2f} €\n"
+message += "📈 Since Start\n\n"
+
+for group in ["ETF", "Quantum", "Growth"]:
+    g = group_stats[group]
+
+    emoji = "🟢" if g["profit"] >= 0 else "🔴"
+
+    message += (
+        f"{emoji} {group}: "
+        f"{fmt_eur(g['profit'])} "
+        f"({g['profit_pct']:+.1f}%)\n"
+    )
+
+message += "\n"
+
+message += f"🚀 Best Performer: {best['name']} {fmt_eur(best['daily_value'])}\n"
 message += f"🐢 Weakest Performer: {weakest['name']} {weakest['daily_value']:+,.2f} €\n"
 message += f"⚠️ Largest Position: {largest['name']} {largest_pct:.1f}%\n\n"
 

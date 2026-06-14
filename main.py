@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from portfolio_config import CRYPTO_HOLDINGS
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]

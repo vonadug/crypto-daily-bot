@@ -8,12 +8,30 @@ CHAT_ID = os.environ["CHAT_ID"]
 STATE_FILE = "portfolio_state.json"
 
 portfolio = {
-    "tron": {"symbol": "TRX", "amount": 9481.90320483},
-    "solana": {"symbol": "SOL", "amount": 14.53053673},
-    "cardano": {"symbol": "ADA", "amount": 5088.68027346},
-    "ethereum": {"symbol": "ETH", "amount": 0.30744651},
-    "binancecoin": {"symbol": "BNB", "amount": 0.83274646},
-    "dogecoin": {"symbol": "DOGE", "amount": 505.93792929},
+    "tron": {
+        "symbol": "TRX",
+        "amount": CRYPTO_HOLDINGS["TRX"]
+    },
+    "solana": {
+        "symbol": "SOL",
+        "amount": CRYPTO_HOLDINGS["SOL"]
+    },
+    "cardano": {
+        "symbol": "ADA",
+        "amount": CRYPTO_HOLDINGS["ADA"]
+    },
+    "ethereum": {
+        "symbol": "ETH",
+        "amount": CRYPTO_HOLDINGS["ETH"]
+    },
+    "binancecoin": {
+        "symbol": "BNB",
+        "amount": CRYPTO_HOLDINGS["BNB"]
+    },
+    "dogecoin": {
+        "symbol": "DOGE",
+        "amount": CRYPTO_HOLDINGS["DOGE"]
+    },
 }
 
 ids = ",".join(portfolio.keys())

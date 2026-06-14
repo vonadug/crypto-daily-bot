@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
+      - name: Run Portfolio Overview
+        run: python overview.py
+
       - name: Run crypto bot
         run: python main.py
 

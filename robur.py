@@ -54,7 +54,25 @@ html = page_response.text
 with open("swedbank_page.html", "w", encoding="utf-8") as f:
     f.write(html)
 
-print(html[:5000])
+patterns = [
+    "price-provider",
+    "SE0014261764",
+    "Technology C",
+    "Swedbank Robur Technology",
+    "identifier",
+    "token",
+    "json",
+    "chart",
+    "fund",
+]
+
+for pattern in patterns:
+    pos = html.find(pattern)
+    print(f"\n--- {pattern}: {pos} ---")
+
+    if pos != -1:
+        print(html[max(0, pos - 1000):pos + 2000])
+
 exit(0)
 
 identifier_match = re.search(r'identifier=([A-F0-9]{80,})', html)

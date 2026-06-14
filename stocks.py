@@ -141,21 +141,27 @@ total_emoji = "🟢" if total_daily >= 0 else "🔴"
 profit_emoji = "🟢" if total_profit >= 0 else "🔴"
 
 message = "📈 Trading212 Portfolio Daily\n\n"
-message += f"Total Value: €{total_value:,.2f}\n"
-message += f"24h P/L: {total_emoji} €{total_daily:+,.2f} ({total_daily_pct:+.2f}%)\n"
+
+message += f"Total Value: {total_value:,.2f} €\n"
+message += f"24h P/L: {total_emoji} {total_daily:+,.2f} € ({total_daily_pct:+.2f}%)\n"
 
 if since_last is not None:
     since_emoji = "🟢" if since_last >= 0 else "🔴"
-    message += f"Since Last Run: {since_emoji} €{since_last:+,.2f} ({since_last_pct:+.2f}%)\n"
+    message += f"Since Last Run: {since_emoji} {since_last:+,.2f} € ({since_last_pct:+.2f}%)\n"
 
-message += f"Profit: {profit_emoji} €{total_profit:+,.2f} ({total_profit_pct:+.2f}%)\n\n"
+message += f"Profit: {profit_emoji} {total_profit:+,.2f} € ({total_profit_pct:+.2f}%)\n\n"
 
-message += f"🚀 Best Performer: {best['name']} €{best['daily_value']:+,.2f}\n"
-message += f"🐢 Weakest Performer: {weakest['name']} €{weakest['daily_value']:+,.2f}\n"
+message += f"🚀 Best Performer: {best['name']} {best['daily_value']:+,.2f} €\n"
+message += f"🐢 Weakest Performer: {weakest['name']} {weakest['daily_value']:+,.2f} €\n"
 message += f"⚠️ Largest Position: {largest['name']} {largest_pct:.1f}%\n\n"
 
 for group_name in ["ETF", "Quantum", "Growth"]:
-    message += f"📊 {group_name}\n"
+    if group_name == "ETF":
+        message += "📊 ETF\n"
+    elif group_name == "Quantum":
+        message += "⚛️ Quantum\n"
+    else:
+        message += "🚀 Growth\n"
 
     group_rows = [r for r in rows if r["group"] == group_name]
 
@@ -165,15 +171,17 @@ for group_name in ["ETF", "Quantum", "Growth"]:
 
         message += (
             f"{emoji} {row['name']}: "
-            f"€{row['value']:,.2f} | "
+            f"{row['value']:,.2f} € | "
             f"{weight:.1f}% | "
             f"{row['daily_pct']:+.2f}% | "
-            f"€{row['daily_value']:+,.2f}\n"
+            f"{row['daily_value']:+,.2f} €\n"
         )
 
     message += "\n"
 
-message += f"💶 Cash: €{CASH_EUR:,.2f}"
+message += "────────────────\n"
+message += f"💶 Cash: {CASH_EUR:,.2f} €\n"
+message += f"🏦 Total: {total_value:,.2f} €"
 
 with open(STATE_FILE, "w") as f:
     json.dump({

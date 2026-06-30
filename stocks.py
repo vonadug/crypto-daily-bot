@@ -1,28 +1,15 @@
 import os
 import json
 import requests
+from portfolio_config import STOCK_POSITIONS, CASH_EUR
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
 STATE_FILE = "stocks_state.json"
-CASH_EUR = 112.19
+POSITIONS = STOCK_POSITIONS
 
-POSITIONS = [
-    ("ETF", "VUSA GBP", "VUSA.L", 29.50884384, 84.0511, "GBP"),
-    ("ETF", "VUSA EUR", "VUSA.AS", 22.34437608, 114.794, "EUR"),
-
-    ("Quantum", "IONQ", "IONQ", 52.13082672, 23.28, "USD"),
-    ("Quantum", "QBTS", "QBTS", 43.13487336, 3.21, "USD"),
-    ("Quantum", "RGTI", "RGTI", 48.268315, 2.98, "USD"),
-
-    ("Growth", "Alphabet", "ABEA.DE", 2.24205794, 168.64, "EUR"),
-    ("Growth", "Apple", "AAPL", 1.82665938, 202.10, "USD"),
-    ("Growth", "Amazon", "AMZ.DE", 1.94746704, 180.38, "EUR"),
-    ("Growth", "Meta", "FB2A.DE", 0.62208621, 533.30, "EUR"),
-    ("Growth", "Microsoft", "MSF.DE", 0.89746218, 399.56, "EUR"),
-    ("Growth", "Nvidia", "NVD.DE", 2.70565948, 113.41, "EUR"),
-]
+GROUPS = ["ETF", "Quantum", "Growth", "2026 Finds"]
 
 
 def fmt_eur(value):
@@ -179,7 +166,10 @@ message += f"Profit: {profit_emoji} {fmt_eur(total_profit)} ({total_profit_pct:+
 
 message += "📈 Since Start\n\n"
 
-for group in ["ETF", "Quantum", "Growth"]:
+for group in GROUPS:
+    if group not in group_stats:
+        continue
+
     g = group_stats[group]
     emoji = "🟢" if g["profit"] >= 0 else "🔴"
     group_weight = (group_values[group] / total_value) * 100
@@ -197,30 +187,35 @@ message += f"🚀 Best Performer: {best['name']} {fmt_eur(best['daily_value'])}\
 message += f"🐢 Weakest Performer: {weakest['name']} {fmt_eur(weakest['daily_value'])}\n"
 message += f"⚠️ Largest Position: {largest['name']} {largest_pct:.1f}%\n\n"
 
-for group_name in ["ETF", "Quantum", "Growth"]:
+for group_name in GROUPS:
+    group_rows = [r for r in rows if r["group"] == group_name]
+
+    if not group_rows:
+        continue
+
     if group_name == "ETF":
         message += "📊 ETF\n"
     elif group_name == "Quantum":
         message += "⚛️ Quantum\n"
-    else:
+    elif group_name == "Growth":
         message += "🚀 Growth\n"
-
-    group_rows = [r for r in rows if r["group"] == group_name]
+    elif group_name == "2026 Finds":
+        message += "🔎 2026 Finds\n"
+    else:
+        message += f"📌 {group_name}\n"
 
     for row in sorted(group_rows, key=lambda x: x["value"], reverse=True):
         emoji = "🟢" if row["daily_value"] >= 0 else "🔴"
         weight = (row["value"] / total_value) * 100
 
         message += (
-    f"{emoji} {row['name']}: "
-    f"{fmt_eur_plain(row['value'])} | "
-    f"{fmt_eur(row['daily_value'])} | "
-    f"{weight:.1f}%\n"
-)
+            f"{emoji} {row['name']}: "
+            f"{fmt_eur_plain(row['value'])} | "
+            f"{fmt_eur(row['daily_value'])} | "
+            f"{weight:.1f}%\n"
+        )
 
     message += "\n"
-
-
 
 message += "────────────────\n"
 message += f"💶 Cash: {fmt_eur_plain(CASH_EUR)}\n"

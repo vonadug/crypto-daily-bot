@@ -45,4 +45,7 @@ STOCK_POSITIONS = [
     ("Growth", "Meta", "FB2A.DE", 0.62208621, 533.30, "EUR"),
     ("Growth", "Microsoft", "MSF.DE", 0.89746218, 399.56, "EUR"),
     ("Growth", "Nvidia", "NVD.DE", 2.70565948, 113.41, "EUR"),
+    ("2026 Finds", "ASML", "ASML.AS", 0.00629119, 1669.00, "EUR"),
+    ("2026 Finds", "Franklin Korea", "FLRK.L", 0.10769967, 84.03, "GBP"),
+    ("2026 Finds", "WisdomTree Quantum", "WQTM.DE", 0.24038461, 37.44, "EUR"),
 ]

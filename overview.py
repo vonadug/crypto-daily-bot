@@ -1,7 +1,5 @@
 import os
-import time
 import requests
-
 from portfolio_config import (
     CRYPTO_HOLDINGS,
     ROBUR_UNITS,
@@ -10,112 +8,12 @@ from portfolio_config import (
     CASH_EUR,
 )
 
-
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHAT_ID = os.environ["CHAT_ID"]
 
 
 def fmt_eur(value):
     return f"{value:,.2f} €"
-
-
-# =========================================================
-# CRYPTO
-# =========================================================
-
-def get_crypto_value_eur():
-    coingecko_ids = {
-        "TRX": "tron",
-        "SOL": "solana",
-        "ADA": "cardano",
-        "ETH": "ethereum",
-        "BNB": "binancecoin",
-        "DOGE": "dogecoin",
-    }
-
-    ids = ",".join(coingecko_ids.values())
-
-    url = "https://api.coingecko.com/api/v3/simple/price"
-
-    params = {
-        "ids": ids,
-        "vs_currencies": "eur",
-    }
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    last_error = None
-
-    # Try CoinGecko up to 5 times
-    for attempt in range(1, 6):
-        try:
-            response = requests.get(
-                url,
-                params=params,
-                headers=headers,
-                timeout=30,
-            )
-
-            print(
-                f"CoinGecko attempt {attempt}: "
-                f"HTTP {response.status_code}"
-            )
-
-            response.raise_for_status()
-
-            prices = response.json()
-
-            total = 0
-
-            for symbol, amount in CRYPTO_HOLDINGS.items():
-                if symbol not in coingecko_ids:
-                    raise ValueError(
-                        f"Unknown crypto symbol in portfolio_config.py: {symbol}"
-                    )
-
-                coin_id = coingecko_ids[symbol]
-
-                if coin_id not in prices:
-                    raise ValueError(
-                        f"CoinGecko missing price for "
-                        f"{symbol} ({coin_id})"
-                    )
-
-                if "eur" not in prices[coin_id]:
-                    raise ValueError(
-                        f"CoinGecko missing EUR price for {symbol}"
-                    )
-
-                price_eur = prices[coin_id]["eur"]
-                total += amount * price_eur
-
-            print(
-                f"Crypto total successfully calculated: "
-                f"{total:.2f} EUR"
-            )
-
-            return total
-
-        except (
-            requests.RequestException,
-            ValueError,
-            KeyError,
-        ) as e:
-            last_error = e
-
-            print(
-                f"CoinGecko attempt {attempt} failed: {e}"
-            )
-
-            if attempt < 5:
-                print("Waiting 10 seconds before retry...")
-                time.sleep(10)
-
-    raise RuntimeError(
-        f"CoinGecko failed after 5 attempts: {last_error}"
-    )
 
 
 # =========================================================
@@ -138,8 +36,14 @@ def get_chart(ticker):
 
     response.raise_for_status()
 
-    result = response.json()["chart"]["result"][0]
-    meta = result["meta"]
+    data = response.json()
+
+    result = data["chart"]["result"]
+
+    if not result:
+        raise RuntimeError(f"No Yahoo Finance data for {ticker}")
+
+    meta = result[0]["meta"]
 
     price = meta["regularMarketPrice"]
     currency = meta.get("currency", "")
@@ -152,13 +56,54 @@ def get_fx(ticker):
     return price
 
 
-def to_eur(
-    price,
-    currency,
-    ticker,
-    eurusd,
-    gbpeur,
-):
+# =========================================================
+# CRYPTO
+# =========================================================
+
+def get_crypto_value_eur():
+
+    yahoo_tickers = {
+        "TRX": "TRX-EUR",
+        "SOL": "SOL-EUR",
+        "ADA": "ADA-EUR",
+        "ETH": "ETH-EUR",
+        "BNB": "BNB-EUR",
+        "DOGE": "DOGE-EUR",
+    }
+
+    total = 0
+
+    print("Calculating crypto portfolio with Yahoo Finance...")
+
+    for symbol, amount in CRYPTO_HOLDINGS.items():
+
+        if symbol not in yahoo_tickers:
+            raise RuntimeError(
+                f"No Yahoo ticker configured for crypto: {symbol}"
+            )
+
+        ticker = yahoo_tickers[symbol]
+
+        price, currency = get_chart(ticker)
+
+        print(
+            f"{symbol}: "
+            f"{amount} x {price} {currency}"
+        )
+
+        total += amount * price
+
+    print(f"Crypto total: {total:.2f} EUR")
+
+    return total
+
+
+# =========================================================
+# TRADING 212
+# =========================================================
+
+def to_eur(price, currency, ticker, eurusd, gbpeur):
+
     if currency == "USD":
         return price / eurusd
 
@@ -174,11 +119,10 @@ def to_eur(
     return price
 
 
-# =========================================================
-# TRADING212
-# =========================================================
-
 def get_trading212_value_eur():
+
+    print("Calculating Trading212 portfolio...")
+
     eurusd = get_fx("EURUSD=X")
     gbpeur = get_fx("GBPEUR=X")
 
@@ -203,9 +147,17 @@ def get_trading212_value_eur():
             gbpeur,
         )
 
-        position_value = shares * price_eur
+        value = shares * price_eur
 
-        total += position_value
+        print(
+            f"{name}: "
+            f"{shares} x {price_eur:.4f} EUR "
+            f"= {value:.2f} EUR"
+        )
+
+        total += value
+
+    print(f"Trading212 total: {total:.2f} EUR")
 
     return total
 
@@ -214,13 +166,15 @@ def get_trading212_value_eur():
 # CALCULATE PORTFOLIO
 # =========================================================
 
-print("Calculating crypto portfolio...")
 crypto_value = get_crypto_value_eur()
 
-print("Calculating Robur portfolio...")
 robur_value = ROBUR_UNITS * ROBUR_NAV
 
-print("Calculating Trading212 portfolio...")
+print(
+    f"Robur: {ROBUR_UNITS} x {ROBUR_NAV} "
+    f"= {robur_value:.2f} EUR"
+)
+
 trading212_value = get_trading212_value_eur()
 
 total_net_worth = (
@@ -236,20 +190,9 @@ total_net_worth = (
 
 message = "💎 Portfolio Overview\n\n"
 
-message += (
-    f"🪙 Crypto: "
-    f"{fmt_eur(crypto_value)}\n"
-)
-
-message += (
-    f"📈 Robur: "
-    f"{fmt_eur(robur_value)}\n"
-)
-
-message += (
-    f"🏦 Trading212: "
-    f"{fmt_eur(trading212_value)}\n\n"
-)
+message += f"🪙 Crypto: {fmt_eur(crypto_value)}\n"
+message += f"📈 Robur: {fmt_eur(robur_value)}\n"
+message += f"🏦 Trading212: {fmt_eur(trading212_value)}\n\n"
 
 message += (
     f"💎 Total Net Worth: "
@@ -258,7 +201,7 @@ message += (
 
 
 # =========================================================
-# SEND TO TELEGRAM
+# SEND TELEGRAM
 # =========================================================
 
 response = requests.post(
@@ -272,11 +215,5 @@ response = requests.post(
 
 response.raise_for_status()
 
-print(
-    f"Telegram response: "
-    f"HTTP {response.status_code}"
-)
-
+print("Telegram message sent successfully.")
 print(response.text)
-
-print("Portfolio Overview sent successfully.")

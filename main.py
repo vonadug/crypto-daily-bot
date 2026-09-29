@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 from portfolio_config import CRYPTO_HOLDINGS
 
@@ -8,149 +9,392 @@ CHAT_ID = os.environ["CHAT_ID"]
 
 STATE_FILE = "portfolio_state.json"
 
+# --------------------------------------------------
+# PORTFOLIO
+# --------------------------------------------------
+
 portfolio = {
-    "tron": {
-        "symbol": "TRX",
-        "amount": CRYPTO_HOLDINGS["TRX"]
+    "TRX": {
+        "ticker": "TRX-USD",
+        "amount": CRYPTO_HOLDINGS["TRX"],
     },
-    "solana": {
-        "symbol": "SOL",
-        "amount": CRYPTO_HOLDINGS["SOL"]
+    "SOL": {
+        "ticker": "SOL-USD",
+        "amount": CRYPTO_HOLDINGS["SOL"],
     },
-    "cardano": {
-        "symbol": "ADA",
-        "amount": CRYPTO_HOLDINGS["ADA"]
+    "ADA": {
+        "ticker": "ADA-USD",
+        "amount": CRYPTO_HOLDINGS["ADA"],
     },
-    "ethereum": {
-        "symbol": "ETH",
-        "amount": CRYPTO_HOLDINGS["ETH"]
+    "ETH": {
+        "ticker": "ETH-USD",
+        "amount": CRYPTO_HOLDINGS["ETH"],
     },
-    "binancecoin": {
-        "symbol": "BNB",
-        "amount": CRYPTO_HOLDINGS["BNB"]
+    "BNB": {
+        "ticker": "BNB-USD",
+        "amount": CRYPTO_HOLDINGS["BNB"],
     },
-    "dogecoin": {
-        "symbol": "DOGE",
-        "amount": CRYPTO_HOLDINGS["DOGE"]
+    "DOGE": {
+        "ticker": "DOGE-USD",
+        "amount": CRYPTO_HOLDINGS["DOGE"],
     },
 }
 
-ids = ",".join(portfolio.keys())
 
-price_url = "https://api.coingecko.com/api/v3/simple/price"
-params = {
-    "ids": ids,
-    "vs_currencies": "usd,eur",
-    "include_24hr_change": "true"
-}
+# --------------------------------------------------
+# YAHOO FINANCE
+# --------------------------------------------------
 
-prices = requests.get(price_url, params=params, timeout=20).json()
+def get_chart(ticker, retries=3):
+    url = (
+        f"https://query1.finance.yahoo.com/v8/finance/chart/"
+        f"{ticker}?range=5d&interval=1d"
+    )
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
+    }
+
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+            result = data.get("chart", {}).get("result")
+
+            if not result:
+                raise RuntimeError(
+                    f"No Yahoo Finance data returned for {ticker}"
+                )
+
+            meta = result[0]["meta"]
+
+            price = meta.get("regularMarketPrice")
+
+            if price is None:
+                raise RuntimeError(
+                    f"No current price returned for {ticker}"
+                )
+
+            # Yahoo normally provides chartPreviousClose.
+            # previousClose is used as fallback.
+            prev_close = meta.get(
+                "chartPreviousClose",
+                meta.get("previousClose", price)
+            )
+
+            return float(price), float(prev_close)
+
+        except Exception as e:
+            last_error = e
+
+            print(
+                f"Yahoo attempt {attempt} failed "
+                f"for {ticker}: {e}"
+            )
+
+            if attempt < retries:
+                time.sleep(3)
+
+    raise RuntimeError(
+        f"Yahoo Finance failed for {ticker} "
+        f"after {retries} attempts: {last_error}"
+    )
+
+
+# --------------------------------------------------
+# EUR/USD EXCHANGE RATE
+# --------------------------------------------------
+
+eurusd, _ = get_chart("EURUSD=X")
+
+if eurusd <= 0:
+    raise RuntimeError("Invalid EUR/USD exchange rate")
+
+
+# --------------------------------------------------
+# CALCULATE PORTFOLIO
+# --------------------------------------------------
 
 coins = []
+
 total_value_usd = 0
 total_value_eur = 0
-total_value_24h_ago = 0
 
-for coin_id, data in portfolio.items():
-    symbol = data["symbol"]
+total_value_24h_ago_usd = 0
+total_value_24h_ago_eur = 0
+
+for symbol, data in portfolio.items():
+
+    ticker = data["ticker"]
     amount = data["amount"]
 
-    price_usd = prices[coin_id]["usd"]
-    price_eur = prices[coin_id]["eur"]
-    change_24h = prices[coin_id]["usd_24h_change"]
+    price_usd, previous_price_usd = get_chart(ticker)
 
+    # Current values
     value_usd = amount * price_usd
-    value_eur = amount * price_eur
+    value_eur = value_usd / eurusd
 
-    price_24h_ago = price_usd / (1 + change_24h / 100)
-    value_24h_ago = amount * price_24h_ago
-    pnl_24h = value_usd - value_24h_ago
+    # Previous-close values
+    previous_value_usd = amount * previous_price_usd
+    previous_value_eur = previous_value_usd / eurusd
+
+    # 24h / previous-close change
+    pnl_24h_usd = value_usd - previous_value_usd
+    pnl_24h_eur = value_eur - previous_value_eur
+
+    change_24h = (
+        (price_usd - previous_price_usd)
+        / previous_price_usd
+        * 100
+        if previous_price_usd
+        else 0
+    )
 
     total_value_usd += value_usd
     total_value_eur += value_eur
-    total_value_24h_ago += value_24h_ago
+
+    total_value_24h_ago_usd += previous_value_usd
+    total_value_24h_ago_eur += previous_value_eur
 
     coins.append({
         "symbol": symbol,
+        "ticker": ticker,
         "value_usd": value_usd,
         "value_eur": value_eur,
         "change_24h": change_24h,
-        "pnl_24h": pnl_24h
+        "pnl_24h_usd": pnl_24h_usd,
+        "pnl_24h_eur": pnl_24h_eur,
     })
 
-total_pnl_24h = total_value_usd - total_value_24h_ago
-total_change_24h = (total_pnl_24h / total_value_24h_ago) * 100
 
-coins.sort(key=lambda x: x["value_usd"], reverse=True)
+# --------------------------------------------------
+# TOTAL DAILY CHANGE
+# --------------------------------------------------
 
-best_performer = max(coins, key=lambda x: x["pnl_24h"])
-weakest_performer = min(coins, key=lambda x: x["pnl_24h"])
-largest_position = max(coins, key=lambda x: x["value_usd"])
-largest_share = (largest_position["value_usd"] / total_value_usd) * 100
+total_pnl_24h_usd = (
+    total_value_usd - total_value_24h_ago_usd
+)
 
-previous_total = 0
+total_pnl_24h_eur = (
+    total_value_eur - total_value_24h_ago_eur
+)
+
+total_change_24h = (
+    total_pnl_24h_usd
+    / total_value_24h_ago_usd
+    * 100
+    if total_value_24h_ago_usd
+    else 0
+)
+
+
+# --------------------------------------------------
+# SORT PORTFOLIO
+# --------------------------------------------------
+
+coins.sort(
+    key=lambda x: x["value_usd"],
+    reverse=True
+)
+
+best_performer = max(
+    coins,
+    key=lambda x: x["pnl_24h_usd"]
+)
+
+weakest_performer = min(
+    coins,
+    key=lambda x: x["pnl_24h_usd"]
+)
+
+largest_position = max(
+    coins,
+    key=lambda x: x["value_usd"]
+)
+
+largest_share = (
+    largest_position["value_usd"]
+    / total_value_usd
+    * 100
+    if total_value_usd
+    else 0
+)
+
+
+# --------------------------------------------------
+# PREVIOUS RUN STATE
+# --------------------------------------------------
+
+previous_total_eur = 0
 
 try:
     with open(STATE_FILE, "r") as file:
         state = json.load(file)
-        previous_total = state.get("last_total_value", 0)
-except FileNotFoundError:
-    previous_total = 0
 
-since_yesterday_text = "First run: no previous value yet"
+        # New state format
+        previous_total_eur = state.get(
+            "last_total_value_eur",
+            0
+        )
 
-if previous_total > 0:
-    since_yesterday = total_value_usd - previous_total
-    since_yesterday_percent = (since_yesterday / previous_total) * 100
-    since_emoji = "🟢" if since_yesterday >= 0 else "🔴"
-    since_yesterday_text = f"{since_emoji} ${since_yesterday:+,.2f} ({since_yesterday_percent:+.2f}%)"
+except (FileNotFoundError, json.JSONDecodeError):
+    previous_total_eur = 0
+
+
+# --------------------------------------------------
+# SINCE LAST RUN
+# --------------------------------------------------
+
+since_last_text = "First run: no previous value yet"
+
+if previous_total_eur > 0:
+
+    since_last = (
+        total_value_eur - previous_total_eur
+    )
+
+    since_last_percent = (
+        since_last
+        / previous_total_eur
+        * 100
+    )
+
+    since_emoji = (
+        "🟢"
+        if since_last >= 0
+        else "🔴"
+    )
+
+    since_last_text = (
+        f"{since_emoji} "
+        f"{since_last:+,.2f} € "
+        f"({since_last_percent:+.2f}%)"
+    )
+
+
+# --------------------------------------------------
+# COIN LINES
+# --------------------------------------------------
 
 lines = []
 
 for coin in coins:
-    emoji = "🟢" if coin["change_24h"] >= 0 else "🔴"
 
-    share = (coin["value_eur"] / total_value_eur) * 100
+    emoji = (
+        "🟢"
+        if coin["pnl_24h_eur"] >= 0
+        else "🔴"
+    )
 
-    pnl_24h_eur = coin["value_eur"] - (
-        coin["value_eur"] / (1 + coin["change_24h"] / 100)
+    share = (
+        coin["value_eur"]
+        / total_value_eur
+        * 100
+        if total_value_eur
+        else 0
     )
 
     lines.append(
         f"{emoji} {coin['symbol']}: "
         f"{coin['value_eur']:,.2f} € | "
-        f"{pnl_24h_eur:+,.2f} € | "
+        f"{coin['pnl_24h_eur']:+,.2f} € | "
         f"{share:.1f}%"
     )
 
-day_emoji = "🟢" if total_pnl_24h >= 0 else "🔴"
 
-total_value_24h_ago_eur = total_value_eur / (1 + total_change_24h / 100)
-total_pnl_24h_eur = total_value_eur - total_value_24h_ago_eur
+# --------------------------------------------------
+# TELEGRAM MESSAGE
+# --------------------------------------------------
+
+day_emoji = (
+    "🟢"
+    if total_pnl_24h_eur >= 0
+    else "🔴"
+)
 
 message = "📊 Crypto Portfolio Daily\n\n"
-message += f"Total Value: {total_value_eur:,.2f} €\n"
-message += f"24h P/L: {day_emoji} {total_pnl_24h_eur:+,.2f} € ({total_change_24h:+.2f}%)\n"
-message += f"Since Last Run: {since_yesterday_text}\n\n"
 
-message += f"🚀 Best Performer: {best_performer['symbol']}\n"
-message += f"🐢 Weakest Performer: {weakest_performer['symbol']}\n"
-message += f"⚠️ Largest Position: {largest_position['symbol']} {largest_share:.1f}%\n\n"
+message += (
+    f"Total Value: "
+    f"{total_value_eur:,.2f} €\n"
+)
+
+message += (
+    f"24h P/L: "
+    f"{day_emoji} "
+    f"{total_pnl_24h_eur:+,.2f} € "
+    f"({total_change_24h:+.2f}%)\n"
+)
+
+message += (
+    f"Since Last Run: "
+    f"{since_last_text}\n\n"
+)
+
+message += (
+    f"🚀 Best Performer: "
+    f"{best_performer['symbol']}\n"
+)
+
+message += (
+    f"🐢 Weakest Performer: "
+    f"{weakest_performer['symbol']}\n"
+)
+
+message += (
+    f"⚠️ Largest Position: "
+    f"{largest_position['symbol']} "
+    f"{largest_share:.1f}%\n\n"
+)
+
 message += "\n".join(lines)
 
-telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+# --------------------------------------------------
+# SEND TELEGRAM
+# --------------------------------------------------
+
+telegram_url = (
+    f"https://api.telegram.org/"
+    f"bot{BOT_TOKEN}/sendMessage"
+)
 
 response = requests.post(
     telegram_url,
     json={
         "chat_id": CHAT_ID,
-        "text": message
+        "text": message,
     },
-    timeout=20
+    timeout=30,
 )
+
+response.raise_for_status()
 
 print(response.status_code)
 print(response.text)
 
+
+# --------------------------------------------------
+# SAVE STATE
+# --------------------------------------------------
+
 with open(STATE_FILE, "w") as file:
-    json.dump({"last_total_value": total_value_usd}, file, indent=2)
+    json.dump(
+        {
+            "last_total_value_eur": total_value_eur,
+            "last_total_value_usd": total_value_usd,
+        },
+        file,
+        indent=2,
+    )
